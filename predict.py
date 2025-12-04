@@ -57,6 +57,33 @@ def predict_lstm_next(csv_path="data/sensor.csv"):
 
     return pred_class
 
+def predict_lstm_1_hour(csv_path="data/sensor.csv", window=60, future_steps=120):
+    """
+    Predict next 1 hour (assuming 1 reading per 30 sec).
+    Returns list of 0/1 values.
+    """
+
+    seq = load_recent_sequence(csv_path, window)
+    seq = np.array(seq)
+
+    predictions = []
+
+    for _ in range(future_steps):
+        input_seq = np.expand_dims(seq, axis=0)  # (1,60,4)
+        pred = lstm_model.predict(input_seq, verbose=0)
+        pred_class = 1 if pred[0][0] >= 0.5 else 0
+        predictions.append(pred_class)
+
+        # Append predicted rain, but feature shape is (humidity, pressure, rain, light)
+        # We keep humidity/pressure/light same as last known sample
+        new_row = seq[-1].copy()
+        new_row[2] = pred_class  # update rain column only
+
+        # Shift window
+        seq = np.vstack([seq[1:], new_row])
+
+    return predictions
+
 
 # ==============================================================
 # DEMO
@@ -70,3 +97,9 @@ if __name__ == "__main__":
     print("\n=== LSTM NEXT-STEP PREDICTION ===")
     p2 = predict_lstm_next()
     print("Next Rain (LSTM):", p2)
+
+    print("\n=== LSTM PREDIKSI 1 JAM KE DEPAN ===")
+    pred_next_hour = predict_lstm_1_hour()
+    print(pred_next_hour)
+    print("Jumlah hujan diprediksi:", sum(pred_next_hour), "menit hujan")
+
